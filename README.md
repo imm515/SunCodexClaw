@@ -1,529 +1,187 @@
-# SunCodexClaw
+# SunCodexClaw Win Mod 改安版本
 
-`SunCodexClaw` 是一个面向飞书工作流的 Codex 机器人项目。
+`SunCodexClaw` 的这个版本是一个面向飞书的 Codex 执行机器人，定位为 `Win Mod 改安版本`。它把飞书消息、本地工作区、附件处理、会话恢复、进度反馈和 Windows 控制脚本连成一条可运行的执行链。
 
-现在仓库里也带了一条实验性的 `OpenClaw Weixin` 接入线，用来验证“我们的机器人是否能按 OpenClaw 那种扫码登录 + 长轮询方式接进微信”。
 
-它不是把 LLM 包一层聊天壳，而是把飞书消息、Codex 工作区、本地文件、云文档进度、多账号运行和本机执行能力串成一条真正能干活的链路。
+## 2026-04-22 最近更新
 
-![Quick Start](docs/images/quickstart-terminal.svg)
+这次公开库不再继续维护一套并行代码改版，而是回到 `README-first / docs-first mod fork` 的思路。
 
-## 2026-03-23 最近更新
+现在这份公开版主要承担的是：
 
-这次把原来的“日报专用定时任务”往前推进了一步，抽成了更通用的定时任务能力：
+- 记录我自己这条 mod 路线想解决什么问题
+- 记录私库里最近真正验证过的方向、日志、目的和意义
+- 给作者和后来者一个足够清楚的思路入口
+- 如果作者认同，再由作者按更专业的方式补实现代码
 
-1. 定时器不再只认识“昨日店铺报告”
-   - 现在同一套任务管理链路既能继续跑 `昨日店铺报告`，也能跑 `skill` 定时任务。
-   - 定时任务现在只通过显式命令 `/time ...` 触发，例如 `/time 每天 8 点运行 $cloudservice-ops 发给我`。
-   - 普通聊天消息不会再被自动猜成定时任务。
-   - 任务依然支持新建、查看、改时间、改目标、停用、启用、立即执行一次。
+一句话说，公开库以后默认更像“我的 mod 版本说明书”，而不是“我要长期自己维护的第二套代码库”。
 
-2. 定时层和业务层开始拆开
-   - 调度器只负责时间、持久化、去重、重试、忙时延期。
-   - 业务执行可以是内置的 `daily_store_report`，也可以是 `skill_run`。
-   - `skill_run` 默认通过本机 `codex exec` 触发对应 skill，执行结果再复用统一消息发送层回到飞书或企业微信。
+## 2026-04-22 这次补充什么
 
-一句话说，现在这套机器人已经不只是“定时发日报”，而是在往“定时触发 Skills 干活”走。
+1. 公开维护方式改了
+   - 默认不再维护和私库并行的一整套公开代码改版。
+   - 以后公开侧优先维护 README、plan、examples、logs 和 rationale。
+   - 私库仍然是唯一真实运行和验证的代码来源。
 
-## 2026-03-19 最近更新
+2. 这份 README 恢复回我原来自己写的 mod 版本结构
+   - 不再只是跟着作者 README 做小修小补。
+   - 重新保留我自己对这个项目的使用视角、交互视角和改造重点。
 
-这次更新主要有两件事，而且都已经接到线上机器人里了：
+3. 最近私库这波已经验证过的重点，公开侧只做说明，不强行复制代码
+   - 会话/线程这条链路更强调当前线程延续，而不是把公开库继续做成第二套长期维护实现。
+   - 公开侧后续更适合记录“为什么这样改、实际有什么帮助、典型日志和例子是什么”。
 
-1. 飞书附件行为更接近真实助理
-   - 如果回复里引用的是本地图片，机器人会直接上传到飞书并发送原生图片消息。
-   - 如果回复里引用的是本地文件，默认不会把本地路径原样发到飞书里，只会保留正常文案或文件名。
-   - 当用户明确说“把文件发我”“给我附件”“导出/下载文件”这类话时，机器人会把本地文件作为飞书文件直接发送，而不是只给一个本地路径。
+## 现在有什么
 
-2. 加入了 OpenClaw 风格的本地记忆 bundle
-   - 每个机器人账号有自己独立的一份本地记忆文件，互不串线。
-   - 记忆不是简单堆聊天记录，而是拆成 `profile_facts`、`role_memory`、`recent_summary`、`activated_history`、`live_tool_facts` 五部分。
-   - 记忆文件存放在 `.runtime/feishu/memory/<account>.json`。
-   - 同一个机器人下，所有线程共享这份总记忆；不同机器人之间完全独立。
-   - 记忆写入前会做过滤和摘要，不会把一大段代码、临时路径、附件指令之类的噪音直接塞进去。
+- 支持飞书 `text`、`post`、`image`、`file`、`audio`
+- 支持显式新会话和旧会话恢复：`/new`、`新任务`、`/resume <session id>`
+- 支持“先暂存，后启动”的批次处理
+- 支持会话短号、业务别名、session 路由
+- 支持云文档进度和本地 watcher 通知
+- 支持 Windows 下多账号统一启停、状态、日志、自动启动
 
-一句话说，现在它已经不是“每个线程一小段上下文”的水平，而是“每个机器人有自己的长期本地记忆 + 每个线程保留短期上下文”。
+## 代码里实际支持的交互
 
-## 2026-03-22 微信实验接入
+### 1. 新任务
 
-这次补的是一条最小可跑的微信通道，不是把 OpenClaw 整套搬进来。
+```text
+新任务
+帮我检查 watcher 为什么没有推送完成通知
+```
 
-- 新增 `tools/weixin_openclaw_bot.js`
-  - 直接复用 `@tencent-weixin/openclaw-weixin` 暴露出来的协议
-  - 支持二维码登录、长轮询收消息、Codex 回复、typing 状态
-  - 支持微信图片/文件入站下载后交给 Codex
-  - 支持通过 `[[WEIXIN_SEND_IMAGE:...]]` / `[[WEIXIN_SEND_FILE:...]]` 把本地图片和文件回发到微信
-- 新增 `tools/weixin_openclaw_login_watch.js`
-  - 支持扫码状态守护
-  - 扫码确认后自动把 token 写入本地 secrets
-  - 在 macOS 上通过 `launchctl` 拉起微信回复进程
-- 新增 `tools/lib/openclaw_weixin_media.js`
-  - 封装微信媒体上传、下载和解密
-- 新增 `config/weixin_openclaw/default.example.json`
-- 新增接入说明：`docs/openclaw-weixin-integration.md`
+代码处理结果：
 
-现阶段已经支持文本、图片、文件主链；语音和视频还没接完。
-如果你是通过 macOS 的 `launchctl` 常驻运行，建议把 `codex.bin` 配成绝对路径，避免后台环境找不到 `codex`。
+- 首行会被识别为新会话命令
+- 后面的正文会继续作为同一轮 prompt
+- 当前线程会清空旧 history，并等待新的 Codex session 绑定
 
-## 一句话
+### 2. 恢复旧会话
 
-我自己写了一个 Codex 版本的 OpenClaw：`SunCodexClaw`。
+```text
+/resume abc123
+继续刚才的排查，并把控制脚本也一起检查
+```
 
-名字是这么宣传的，但这里只是产品方向和交互目标与 OpenClaw 接近，没有直接借 OpenClaw 的代码。
+代码处理结果：
 
-它解决的问题很直接：
+- `abc123` 会先按短号或完整 `session id` 匹配
+- 匹配到旧 session 后，正文会继续发到该 session
+- 回复文本里会补上 session 短号和业务别名，方便后续继续追踪
 
-1. 不想浪费 token。
-2. 不想让机器人只会陪聊，不会干活。
-3. 不想每次都切 IDE、切终端、切飞书。
-4. 不想多机器人互相污染工作区和上下文。
-5. 不想附件、图片、语音、进度反馈这些体验太差。
-6. 不想记忆只是“多带几轮聊天记录”。
+### 3. 附件先暂存，再显式开始
 
-## 它是什么
+```text
+@机器人
+[连续发送文件]
+over, 先按文件里的顺序整理问题
+```
 
-项目核心就是：
+代码处理结果：
 
-- 飞书 WebSocket 长连接收消息
-- 按账号把消息路由到对应的 `codex cwd`
-- 用 `codex exec --json` 执行任务
-- 把过程写回飞书消息或飞书云文档
-- 支持按内容自动选择普通文本 / Markdown 卡片 / 图片 / 文件回复
-- 支持解析飞书 `post` 富文本消息，包括常见 Markdown 风格正文、图片和文件附件
-- 支持图片分析、语音转写、文件读取、文件回传、本地长期记忆、Skills、本机操作
+- 文件不会在收到时立刻执行
+- 当前批次会先写入待处理清单
+- `over, ...` 会触发批次激活，并把后面的文字一起并入本轮输入
 
-这套东西特别适合“在飞书里提任务，机器人直接去代码库和电脑上干活，再把过程和结果回给你”这种工作方式。
+### 4. 打断时不直接覆盖正在执行的任务
 
-## 现在有哪些能力
+```text
+@机器人
+这个问题先别停，另外把这两张图也记进去
+```
 
-### 1. 真正执行，不只聊天
+代码处理结果：
 
-- 机器人底层直接跑本机 `codex exec`
-- 可以读写工作区文件、执行命令、改代码、产出文件
-- 能把结果再原样回到飞书
+- 如果当前任务还在执行，新输入不会直接冲掉旧任务
+- 文本和附件会先进暂存批次
+- 等你显式发送 `开始处理` 或 `over` 后才切换进去
 
-### 2. 飞书适配很深
+## 最近这几天已经补进来的重点
 
-- 支持群聊 `@`
-- 支持飞书 `post` 富文本 / Markdown 风格消息入站解析
-- 支持“先 @ 再发图片 / 文件 / 语音”的连续工作流
-- 支持把最近一条文本和紧随其后的文件 / 图片 / 语音合并成一次请求
-- 支持飞书云文档进度
-- 支持图片和文件的原生发送
-- 支持多账号统一启停和 LaunchAgents
+- 明确要求先 `/new` 或 `/resume`，不再默认偷偷开新 session
+- `新任务`、`新线程`、`下一个任务` 等自然语言别名支持多行正文
+- `/resume <id>` 支持多行正文和短号匹配
+- 模糊命令会按普通正文处理，避免误切会话
+- watcher 已并入 `tools/5` 控制链路，可统一 `start/stop/status/logs`
+- stage window 会落盘恢复，并按超时自动失效
 
-### 3. 记忆不是堆聊天记录
+## 推荐配置思路
 
-- 线程内仍然保留有限轮 `history`
-- 机器人账号层面额外保留一份本地 memory bundle
-- 新线程也能继承该机器人已经记住的偏好和历史事实
-- 不同账号各自独立，不共享记忆
+当前更推荐把 Feishu 机器人自带的本地长期记忆关掉，把上下文延续尽量交给同一条 Codex session：
 
-### 4. 对附件更友好
+- `codex.history_turns: 0`
+- `memory.enabled: false`
+- 需要继续时显式发送 `/resume <短号或完整session id>`
 
-- 用户发来的文件会先下载到本地，再交给 Codex 读取
-- 回复中的本地图片会自动转成飞书图片消息
-- 用户明确要文件时，本地文件会自动转成飞书文件消息
+原因很直接：
 
-### 5. 可以持续反馈进度
+- 本地记忆会和真实 session 上下文形成两套来源，容易互相打架
+- 这次修复的核心已经转到 session 绑定、恢复、短号追踪、stage window 和显式会话切换
+- 对这条链路来说，优先保证“继续同一 session”通常比“再叠一层机器人记忆”更稳定
 
-- 可以直接回消息
-- 也可以持续把过程写到飞书云文档
-- 比“假流式输出”更稳，也更适合长任务
+## 关键文件
 
-## 和通用聊天壳的区别
+- `tools/feishu_ws_bot.js`
+  飞书机器人主逻辑，包含消息解析、会话控制、附件暂存、恢复与回复发送
+- `tools/5/feishu_bot_ctl.ps1`
+  Windows 控制入口，负责账号和 watcher 的启停、状态、日志、配置档位
+- `tools/5/codex_local_watcher.js`
+  本地 session watcher，负责读取 Codex session 文件并推送 webhook
+- `tests/feishu_ws_bot_command.test.js`
+  会话命令和最近控制流修复的回归测试
 
-相对 OpenClaw 这类更通用的聊天壳，这个项目更强调“在飞书里把事做完”：
-
-- 更像执行器：
-  - 它跑的是本机 `codex`
-  - 所以天然能连上你的工作区、命令、文件和本地产物
-- 更像工作流机器人：
-  - 它不是只回一句话
-  - 它还会处理图片、文件、语音、进度文档和最终附件
-- 更适合多机器人：
-  - 每个账号可以有独立 `cwd`
-  - 每个账号也有独立本地记忆文件
-- 更节省上下文：
-  - 线程内只保留有限轮历史
-  - 长期信息走本地 memory bundle，而不是无限堆聊天记录
-
-## 工作方式
-
-你在飞书里给机器人发消息，机器人大致按这条路径工作：
-
-1. 收到文本 / 图片 / 文件 / 语音消息
-2. 归一化成适合 Codex 的输入
-3. 读取该机器人自己的本地 memory bundle
-4. 在账号绑定的 `codex.cwd` 里执行 `codex exec`
-5. 持续记录进度
-6. 把最终回复、图片、文件或云文档链接回发到飞书
-7. 过滤并更新该机器人的本地记忆
-
-所以它的核心不是“聊天”，而是“飞书消息驱动的本机执行”。
-
-## 安装
-
-建议直接在你平时跑 Codex 的那台机器上 clone：
+## 快速开始
 
 ```bash
-git clone git@github.com:Sunbelife/SunCodexClaw.git
+git clone https://github.com/imm515/SunCodexClaw.git
 cd SunCodexClaw
 npm install
 ```
 
-## 先决条件
-
-在使用前，你需要先有：
-
-- 可正常使用的 `codex` CLI
-- 可用的 Codex / OpenAI token 或已登录态
-- 一台能运行 `codex` 的机器
-- 一个飞书企业自建应用
-
-官方参考：
-
-- [OpenAI Codex getting started](https://help.openai.com/en/articles/11096431-openai-codex-ci-getting-started)
-- [Codex CLI and ChatGPT plan access](https://help.openai.com/en/articles/11381614-codex-cli-and-chatgpt-plan-access)
-- [OpenAI API keys](https://platform.openai.com/api-keys)
-- [飞书开放平台控制台](https://open.feishu.cn/app)
-- [飞书开放平台文档首页](https://open.feishu.cn/document/home/index)
-
-## 配置读取顺序
-
-当前读取顺序是：
-
-1. 命令行参数
-2. 环境变量
-3. `config/secrets/local.yaml`
-4. `config/feishu/<account>.json`
-
-推荐拆成两层：
-
-- `config/secrets/local.yaml`
-  - 放敏感项和本机私有配置
-  - 例如飞书密钥、Bot Open ID、Codex token
-- `config/feishu/<account>.json`
-  - 放非敏感运行项
-  - 例如回复模式、工作目录、进度模式、群触发规则
-
-![Config Layout](docs/images/config-layout.svg)
-
-## 配置示例
-
-先复制模板：
+复制模板：
 
 ```bash
 cp config/secrets/local.example.yaml config/secrets/local.yaml
 cp config/feishu/default.example.json config/feishu/default.json
 ```
 
-`config/secrets/local.yaml` 示例：
+前台启动：
+
+```bash
+node tools/feishu_ws_bot.js --account default
+```
+
+Windows 控制脚本：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools/5/feishu_bot_ctl.ps1 -Command info
+powershell -ExecutionPolicy Bypass -File tools/5/feishu_bot_ctl.ps1 -Command status -Account watcher
+```
+
+运行测试：
+
+```bash
+node --test tests/feishu_ws_bot_command.test.js
+```
+
+## 配置说明
+
+- `config/secrets/local.example.yaml`
+  放飞书密钥、Codex 参数、watcher webhook、语音转写和本地路径模板
+- `config/feishu/default.example.json`
+  放账号级默认行为，例如回复模式、进度模式、群聊触发规则
+
+推荐起步值：
 
 ```yaml
-config:
-  feishu:
-    assistant:
-      app_id: "cli_xxx"
-      app_secret: "..."
-      encrypt_key: "..."
-      verification_token: "..."
-      bot_open_id: "ou_xxx"
-      bot_name: "飞书 Codex 助手"
-      domain: "feishu"
-      reply_mode: "codex"
-      reply_prefix: "AI 助手："
-      ignore_self_messages: true
-      auto_reply: true
-      require_mention: true
-      require_mention_group_only: true
-      progress:
-        enabled: true
-        mode: "doc"
-        message: "已接收，正在执行。"
-        doc:
-          title_prefix: "Codex 任务进度"
-          share_to_chat: true
-          link_scope: "same_tenant"
-          include_user_message: true
-          write_final_reply: true
-      codex:
-        bin: "codex"
-        api_key: "sk-..."
-        model: "gpt-5.4"
-        reasoning_effort: "xhigh"
-        profile: ""
-        cwd: "/absolute/path/to/workspace"
-        add_dirs:
-          - "/absolute/path/to/another/workspace"
-        history_turns: 6
-        sandbox: "danger-full-access"
-        approval_policy: "never"
-      speech:
-        enabled: true
-        api_key: "sk-..."
-        model: "gpt-4o-mini-transcribe"
-        language: ""
-        base_url: "https://api.openai.com/v1"
-        ffmpeg_bin: ""
-      memory:
-        enabled: true
-        role_memory: |
-          默认用简体中文回复。
-          默认先做事，再解释。
+codex:
+  history_turns: 0
+memory:
+  enabled: false
+  role_memory: ""
 ```
 
-`config/feishu/<account>.json` 示例：
+## 说明
 
-```json
-{
-  "bot_name": "AI 助手",
-  "reply_mode": "codex",
-  "reply_prefix": "AI 助手：",
-  "require_mention": true,
-  "require_mention_group_only": true,
-  "progress": {
-    "enabled": true,
-    "mode": "doc",
-    "doc": {
-      "title_prefix": "Codex 任务进度"
-    }
-  },
-  "codex": {
-    "cwd": "/absolute/path/to/workspace",
-    "add_dirs": [
-      "/absolute/path/to/another/workspace"
-    ]
-  },
-  "memory": {
-    "enabled": true,
-    "role_memory": "默认简洁、直接、少空话。"
-  }
-}
-```
-
-### 配置建议
-
-- 密钥尽量只放 `local.yaml`
-- 每个机器人单独配置自己的 `codex.cwd`
-- 需要跨目录工作时再加 `codex.add_dirs`
-- `memory.role_memory` 适合写“这个机器人应该长期遵守的角色偏好”
-- `bot_open_id` 可以不手填，第一次成功 `@` 后会自动探测并持久化
-- 如果你已经通过 `codex login` 登录，也可以不填 `codex.api_key`
-
-## 快速验证
-
-先做 dry run：
-
-```bash
-node tools/feishu_ws_bot.js --account assistant --dry-run
-```
-
-如果看到这些信号，基本就通了：
-
-- `app_id_found=true`
-- `app_secret_found=true`
-- `codex_found=true`
-- `codex_cwd=...`
-- `memory_enabled=true`
-
-## 飞书开放平台至少要配什么
-
-### 必订阅事件
-
-- `im.message.receive_v1`
-
-### 最低建议权限
-
-至少建议开这些：
-
-- `im:message`
-- `im:message:readonly`
-- `im:message.group_msg`
-- `im:message.p2p_msg:readonly`
-- `im:message:send_as_bot`
-- `im:chat:read`
-- `im:chat:readonly`
-- `im:chat.members:read`
-- `im:resource`
-- `docx:document`
-- `docx:document:create`
-- `docx:document:readonly`
-- `docx:document:write_only`
-- `drive:drive`
-- `drive:drive.metadata:readonly`
-- `drive:drive:readonly`
-
-## 启动
-
-前台启动单账号：
-
-```bash
-node tools/feishu_ws_bot.js --account assistant
-```
-
-使用 `package.json` 里的脚本：
-
-```bash
-npm run feishu:ws
-npm run feishu:ws:dry
-npm run feishu:start
-npm run feishu:stop
-npm run feishu:restart
-npm run feishu:status
-```
-
-直接用控制脚本管理多账号：
-
-```bash
-bash tools/feishu_bot_ctl.sh list
-bash tools/feishu_bot_ctl.sh start all
-bash tools/feishu_bot_ctl.sh status all
-bash tools/feishu_bot_ctl.sh logs assistant --follow
-bash tools/feishu_bot_ctl.sh restart assistant
-bash tools/feishu_bot_ctl.sh stop all
-```
-
-## 开机自启
-
-macOS 下可以安装 LaunchAgents：
-
-```bash
-bash tools/install_feishu_launchagents.sh install all
-```
-
-查看状态：
-
-```bash
-bash tools/install_feishu_launchagents.sh status all
-```
-
-默认 label 前缀是：
-
-```text
-com.sunbelife.suncodexclaw.feishu
-```
-
-## 消息能力
-
-### 文本
-
-- 支持多轮上下文
-- 群聊默认按整个群共享当前线程，但会把发件人 / 命令发起人的标识一起带进 prompt
-- 支持在 `@` 机器人时回读被引用的上一条消息内容
-- 支持飞书 `post` 富文本消息，会尽量提取正文、图片和文件信息并继续走同一套处理链路
-- 支持 `/threads`
-- 支持 `/thread new`
-- 支持 `/thread switch`
-- 支持 `/thread current`
-- 支持 `/reset`
-
-### 图片
-
-- 飞书图片会先下载到本地，再作为输入交给 Codex
-- 如果回复里引用本地图片，会自动转成飞书原生图片消息
-- 当前单图片限制是 `10 MB`
-
-如果你仍然想显式指定回发图片，也可以输出：
-
-```text
-[[FEISHU_SEND_IMAGE:/absolute/or/relative/path]]
-```
-
-### 语音
-
-- 支持直接接收飞书语音消息
-- 会先下载语音，再转写成文字交给 Codex
-- 默认可复用 `codex.api_key` 做转写，也可以单独配置 `speech.api_key`
-
-### 文件读取
-
-用户发文件时，机器人会：
-
-1. 下载到本地临时目录
-2. 优先把同条消息里的附带文字一起带进 prompt
-3. 如果用户是先发文字再紧跟文件，也会尽量合并成一次请求
-4. 把临时路径写进 prompt
-5. 让 Codex 直接读取文件
-6. 回复后清理临时目录
-
-### 文件发送
-
-- 如果用户明确要文件，机器人会把本地文件直接上传成飞书文件消息
-- 默认不会把本地路径原样塞回飞书
-- 当前单文件限制是 `30 MB`
-
-如果你想显式指定回发文件，也可以输出：
-
-```text
-[[FEISHU_SEND_FILE:/absolute/or/relative/path]]
-```
-
-### 云文档进度
-
-- 可以在任务开始时先回复一条“已接收，正在执行”
-- 也可以实时把执行过程写到飞书云文档
-- 适合长任务、部署任务、批量处理任务
-
-## 本地记忆机制
-
-当前记忆分两层：
-
-### 线程内短期上下文
-
-- 每个飞书会话作用域里有线程状态
-- 群聊默认是“一个群一个当前线程”，不再按群成员拆开
-- 通过 `/thread new`、`/thread switch`、`/reset` 控制
-- 主要用于短期上下文和 Codex thread resume
-
-### 机器人级长期本地记忆
-
-- 每个账号一份本地 bundle：`.runtime/feishu/memory/<account>.json`
-- 同一机器人下，跨线程共享
-- 不同机器人之间互相隔离
-
-bundle 当前包含：
-
-- `profile_facts`
-- `role_memory`
-- `recent_summary`
-- `activated_history`
-- `live_tool_facts`
-
-记忆更新原则：
-
-- 优先保留稳定偏好、角色约束、用户事实
-- 最近几轮对话只保留压缩后的摘要
-- 工具和附件结果只保留短期事实
-- 会过滤本地临时路径、附件指令、长代码块和噪音文本
-
-## 目录结构
-
-```text
-SunCodexClaw/
-├── config/
-│   ├── feishu/
-│   │   ├── default.example.json
-│   │   └── <account>.json
-│   └── secrets/
-│       ├── local.example.yaml
-│       └── local.yaml
-├── docs/images/
-├── tools/
-│   ├── feishu_ws_bot.js
-│   ├── feishu_bot_ctl.sh
-│   ├── install_feishu_launchagents.sh
-│   └── lib/local_secret_store.js
-├── .runtime/feishu/
-│   ├── logs/
-│   └── memory/
-└── README.md
-```
-
-## 适合拿它干什么
-
-- 在飞书里直接提代码任务
-- 让机器人读文件、改代码、生成产物并回发
-- 让多个机器人分别盯不同工作区
-- 把机器人当作一个长期在本机待命的飞书执行入口
-
-如果你要的是“飞书里的助手真的能去代码库和电脑上干活”，这个项目会比一个通用聊天壳更合适。
+- 本仓库默认不提交 `config/secrets/local.yaml`
+- `.runtime/`、`conversation_records/`、日志和运行态文件都应留在你自己的机器上
+- README 里的示例均来自当前代码支持的实际处理路径，不是虚构指令
