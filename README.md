@@ -11,6 +11,8 @@
 - 恢复流程补了误判保护，重启后不再轻易把可恢复状态误报成“conversation records 缺失”。
 - 进度文档关闭路径已重新对齐，完成、打断、恢复后的收尾行为更一致。
 - 当正式回复回执还没落地时，watcher 的完成卡片会顺延一轮，减少“先看到完成提示、后看到正式回复”的错位感。
+- `watcher` 与 `feishu_ws_bot.js` 的回执判断现在是配合关系，不再是各发各的通知。
+- Win 版的统一脚本管理继续保留，启动、停止、状态、日志查看和常驻管理可以走同一条入口。
 
 ## 这个 mod 主要改什么
 
@@ -21,6 +23,8 @@
 - 文件、图片、语音和处理中插入的新消息会先进入同一批次，等用户明确发送 `over` 或 `开始处理` 再统一提交。
 - 群聊里的控制边界更明确，避免旁观消息、补充说明或晚到附件直接冲掉当前任务。
 - 恢复、进度文档和完成通知更强调“最终交付状态一致”，而不是单纯多发几条提示。
+- `watcher` 与机器人主流程之间增加了更明确的完成判定衔接，减少完成提示和正式回复错位。
+- Win 版保留了统一控制脚本这条管理链路，适合长期挂着跑而不是只靠单进程前台启动。
 
 ## 当前交互规则
 
@@ -48,8 +52,22 @@
 ### 4. 恢复与完成规则
 
 - 恢复时会优先保留可继续的上下文、附件批次和进度状态。
-- 完成提示不会只看 watcher 是否先结束，还会尽量等待正式回复路径落地。
+- 完成提示不会只看 watcher 是否先结束，还会结合 `feishu_ws_bot.js` 写出的回复回执尽量等待正式回复路径落地。
 - 目标是让用户最终看到的完成状态，更接近真实交付状态，而不是抢先弹出一个“已完成”。
+
+## Watcher 与 Win 管理亮点
+
+### 1. watcher 不只是附带通知
+
+- `watcher` 会跟踪 Codex session 事件，但最终完成提示不再只按 watcher 自己的完成时点硬推。
+- 机器人主流程会写入回复回执，`watcher` 会据此判断是否应当继续等待正式回复落地。
+- 这让“watcher 已完成”和“飞书里用户已看到正式回复”之间的关系更清楚，减少重复通知或过早完成提示。
+
+### 2. Win 版强调统一管理
+
+- 除了 `node tools/feishu_ws_bot.js` 直接启动之外，Win Mod 也保留了统一脚本管理入口。
+- 日常启停、批量状态检查、日志跟踪和重启可以走同一套控制命令，而不是分散靠手动进程管理。
+- 对长期运行场景来说，这比只展示一个启动命令更重要，因为它把 bot、watcher 和运行状态检查收进了同一条管理链路。
 
 ## 典型使用方式
 
@@ -98,7 +116,9 @@ over, 先按文件里的顺序整理问题
 - 支持会话短号、业务别名、session 路由
 - 支持飞书云文档进度反馈
 - 支持本地图片和文件作为飞书原生消息回发
+- 支持 watcher 与正式回复回执配合的完成判断
 - 支持多账号运行与统一控制脚本
+- 支持长期运行场景下的启动、停止、状态、日志查看与常驻管理
 - 支持微信实验接入线，用于验证扫码登录和长轮询消息通道
 
 ## 快速开始
@@ -126,8 +146,10 @@ node tools/feishu_ws_bot.js --account default
 
 ```bash
 bash tools/feishu_bot_ctl.sh status all
+bash tools/feishu_bot_ctl.sh start all
 bash tools/feishu_bot_ctl.sh restart assistant
 bash tools/feishu_bot_ctl.sh logs assistant --follow
+bash tools/feishu_bot_ctl.sh stop all
 ```
 
 ## 配置建议
@@ -151,9 +173,11 @@ memory:
 ## 关键文件
 
 - `tools/feishu_ws_bot.js`
-  飞书机器人主逻辑，负责消息解析、session 控制、批次处理、恢复与回复发送。
+  飞书机器人主逻辑，负责消息解析、session 控制、批次处理、恢复、回复发送和回复回执写入。
 - `tools/feishu_bot_ctl.sh`
   常用控制脚本，负责启停、状态和日志查看。
+- `tools/5/codex_local_watcher.js`
+  本地 watcher，负责跟踪 Codex session 事件，并与回复回执配合完成通知判断。
 - `tools/weixin_openclaw_bot.js`
   微信实验接入线，用于验证 OpenClaw 风格的扫码登录和消息通道。
 - `README.upstream-original.md`
